@@ -1,4 +1,3 @@
-import type { GetServerSideProps } from "next";
 import { supabase } from "../../lib/supabaseClient";
 import type { BookRow } from "../../lib/types";
 
@@ -19,13 +18,13 @@ function buildPublicStorageUrl(
   return `${base}/storage/v1/object/public/${b}/${path}`;
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (
-  context
-) => {
+export async function getServerSideProps(context: {
+  params?: { id?: string | string[] };
+}) {
   const raw = context.params?.id;
   const id = Array.isArray(raw) ? raw[0] : raw;
   if (!id || typeof id !== "string") {
-    return { notFound: true };
+    return { redirect: { destination: "/", permanent: false } };
   }
 
   const { data: book, error } = await supabase
@@ -35,7 +34,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
     .maybeSingle();
 
   if (error || book == null) {
-    return { notFound: true };
+    return { redirect: { destination: "/", permanent: false } };
   }
 
   const row = book as BookRow;
@@ -53,54 +52,50 @@ export const getServerSideProps: GetServerSideProps<Props> = async (
       pdfPublicUrl,
     },
   };
-};
+}
 
 export default function BookPage({ book, pdfPublicUrl }: Props) {
   return (
-    <main className="p-6 max-w-4xl mx-auto flex flex-col gap-4 min-h-screen">
-      <a
-        href="/"
-        className="text-sm text-neutral-600 dark:text-neutral-400 hover:underline"
-      >
+    <main className="main-page-wide">
+      <a className="link-back" href="/">
         ← Back to library
       </a>
 
-      <h1 className="text-2xl font-bold">{book.title}</h1>
+      <h1 className="title-book">{book.title}</h1>
 
       {!book.storage_path ? (
-        <p className="text-neutral-600 dark:text-neutral-400">
-          No <code className="bg-neutral-100 dark:bg-neutral-800 px-1 rounded">storage_path</code>{" "}
-          set for this row. Add the object path inside your bucket (e.g.{" "}
-          <code className="bg-neutral-100 dark:bg-neutral-800 px-1 rounded">my-file.pdf</code>
-          ).
+        <p className="text-muted">
+          No <code className="code-inline">storage_path</code> set for this
+          row. Add the object path inside your bucket (e.g.{" "}
+          <code className="code-inline">my-file.pdf</code>).
         </p>
       ) : null}
 
       {book.storage_path && !pdfPublicUrl ? (
-        <p className="text-red-600 dark:text-red-400">
-          Missing <code className="bg-neutral-100 dark:bg-neutral-800 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
+        <p className="text-danger">
+          Missing <code className="code-inline">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
           or invalid storage configuration.
         </p>
       ) : null}
 
       {pdfPublicUrl ? (
         <>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-small-muted">
             If the frame is blank, confirm the bucket allows public read or open{" "}
             <a
               href={pdfPublicUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline"
+              className="link-inline"
             >
               the PDF in a new tab
             </a>
             .
           </p>
           <iframe
-            title={book.title}
+            title={String(book.title)}
             src={pdfPublicUrl}
-            className="w-full flex-1 min-h-[75vh] border border-neutral-200 dark:border-neutral-700 rounded"
+            className="pdf-frame"
           />
         </>
       ) : null}
